@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Cart;
 use App\Models\CartItem;
 use Illuminate\Http\Request;
+use App\Models\Product;
 
 class CartController extends Controller
 {
@@ -19,84 +20,16 @@ class CartController extends Controller
         ->first();
 
 
-        $total = 0;
+        //$total = $cart ? $cart->getTotalAttribute() : 0;
+         $total = $cart?->total ?? 0;
 
-        if ($cart) {
 
-            foreach ($cart->items as $item) {
-                $total += $item->price * $item->quantity;
-             }
-         }
 
-    return view('cart.index', compact('cart', 'total'));
+        return view('cart.index', compact('cart', 'total'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Cart $cart)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Cart $cart)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, CartItem $item)
-    {
-        //
-         $request->validate([
-        'quantity'=>'required|integer|min:1'
-        ]);
-
-
-        $item->update([
-
-            'quantity'=>$request->quantity
-
-        ]);
-
-
-        return back();
-
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Cart $cart)
-    {
-        //
-        $cart->delete();
-
-
-        return back();
-    }
-    public function add(Product $product)
+        public function add(Product $product)
     {
 
         $cart = Cart::firstOrCreate([
@@ -109,11 +42,30 @@ class CartController extends Controller
         ->first();
 
 
+        if ($product->quantity <= 0) {
+         return back()->with('error', 'Product out of stock');
+        }
+
         if($item){
 
-            $item->increment('quantity');
+             // الكمية الحالية + 1 أكبر من المخزون
+        if($item->quantity + 1 > $product->quantity){
+
+            return back()->with(
+                'error',
+                'Only '.$product->quantity.' items available'
+            );
+        }
+        $item->increment('quantity');
 
         }else{
+              if($product->quantity < 1){
+
+                return back()->with(
+                'error',
+                'Product is out of stock'
+                );
+            }
 
 
             $cart->items()->create([
@@ -130,7 +82,44 @@ class CartController extends Controller
         }
 
 
+
+
         return back();
 
     }
+
+
+
+    public function update(Request $request, CartItem $item)
+    {
+        //
+         $request->validate([
+        'quantity'=>'required|integer|min:1'
+        ]);
+
+        abort_unless($item->cart->user_id === auth()->id(), 403);
+        $item->update([
+
+            'quantity'=>$request->quantity
+
+        ]);
+
+
+        return back();
+
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(CartItem $item)
+    {
+        //
+        abort_unless($item->cart->user_id === auth()->id(), 403);
+        $item->delete();
+
+
+        return back();
+    }
+
 }

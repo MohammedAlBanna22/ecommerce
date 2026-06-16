@@ -110,6 +110,24 @@
 
             </form>
 
+
+    @if($product->quantity > 0)
+
+        <form action="{{ route('cart.add', $product->id) }}" method="POST">
+            @csrf
+            <button class="bg-green-600 text-white px-4 py-2 rounded">
+                Add to Cart
+            </button>
+        </form>
+
+    @else
+
+        <button disabled
+            class="bg-gray-400 text-white px-4 py-2 rounded cursor-not-allowed">
+            Out of Stock
+        </button>
+
+    @endif
         </div>
 
     </div>

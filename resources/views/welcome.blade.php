@@ -46,6 +46,10 @@
                             </a>
                         @endif
                     @endauth
+
+                    @php
+                    $notifications = auth()->user()->notifications;
+                    @endphp
                 </nav>
             @endif
         </header>
