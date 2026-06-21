@@ -50,8 +50,8 @@
     <!-- Image (Clickable) -->
     <a href="{{ route('products.show', $product->id) }}">
         <div class="h-48 bg-gray-100">
-            @if($product->image)
-                <img src="{{ asset('storage/' . $product->image) }}"
+            @if($product->mainImage)
+                <img src="{{ asset('storage/'.$product->mainImage->path)  }}"
                      class="w-full h-full object-cover hover:scale-105 transition duration-300">
             @else
                 <div class="w-full h-full flex items-center justify-center text-gray-400">

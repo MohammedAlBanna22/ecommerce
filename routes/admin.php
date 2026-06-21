@@ -35,6 +35,13 @@ Route::middleware(['auth','admin'])
         ->name('admin.orders.invoice');
 
 
+    Route::patch(
+    '/admin/orders/{order}/status',
+    [OrderController::class,'updateStatus']
+    )
+    ->name('orders.status');
+
+
 
 
 });

@@ -12,7 +12,9 @@ class Order extends Model
         'total_price',
         'payment_method',
         'payment_status',
-        'order_status'
+        'order_status',
+        'coupon_code',
+        'discount',
     ];
 
 
@@ -25,5 +27,11 @@ class Order extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+    public function histories()
+    {
+        return $this->hasMany(
+            OrderStatusHistory::class
+         );
     }
 }

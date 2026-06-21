@@ -11,7 +11,13 @@ class Cart extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id'
+        'user_id',
+        'expires_at'
+    ];
+
+
+    protected $casts = [
+    'expires_at'=>'datetime'
     ];
 
 

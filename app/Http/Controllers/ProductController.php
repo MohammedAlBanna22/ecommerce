@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateProductRequest;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
@@ -17,7 +18,13 @@ class ProductController extends Controller
     public function index()
     {
         //
-        $products = Product::with('category')->latest()->get();
+       $products = Product::with([
+                    'category:id,name',
+                    'mainImage:id,path,mediable_id,mediable_type'
+                    ])
+                    ->latest()
+                    ->paginate(12);
+
         return view('products.index', compact('products'));
     }
 
@@ -36,19 +43,61 @@ class ProductController extends Controller
      */
     public function store(StoreProductRequest $request)
     {
-        //
+        return DB::transaction(function () use ($request) {
 
-        $data = $request->validated();
 
-        if ($request->hasFile('image')) {
-        $data['image'] = $this->uploadImage($request->file('image'));
-        }
+            $data = $request->validated();
 
-        Product::create($data);
 
+            // create product
+            $product = Product::create($data);
+
+
+
+            if($request->hasFile('images'))
+            {
+
+                foreach($request->file('images') as $index=>$file)
+                {
+
+
+                    $path = $file->store(
+                        'media/products',
+                        'public'
+                    );
+
+
+                    $product->media()->create([
+
+                        'path'=>$path,
+
+                        'type'=>'image',
+
+                        // اول صورة فقط primary
+                        'is_primary'=>$index === 0,
+
+                        'sort_order'=>$index
+
+                    ]);
+
+
+                }
+
+            }
+
+
+
+            //return $product;
+                   return redirect()
+            ->route('products.index')
+            ->with('success','Product created successfully');
+
+        });
         return redirect()
-        ->route('products.index')
-        ->with('success', 'Product created successfully');
+            ->route('products.index')
+            ->with('success','Product created successfully');
+
+
     }
     private function uploadImage($file, $oldImage = null)
     {

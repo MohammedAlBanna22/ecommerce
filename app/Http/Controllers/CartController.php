@@ -4,122 +4,71 @@ namespace App\Http\Controllers;
 
 use App\Models\Cart;
 use App\Models\CartItem;
-use Illuminate\Http\Request;
 use App\Models\Product;
+use App\Services\CartService;
+use Illuminate\Http\Request;
+
 
 class CartController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
+    public function __construct(
+        private CartService $cartService
+    ) {}
+
     public function index()
     {
-        //
         $cart = Cart::with('items.product')
-        ->where('user_id', auth()->id())
-        ->first();
+            ->where('user_id', auth()->id())
+            ->first();
 
-
-        //$total = $cart ? $cart->getTotalAttribute() : 0;
-         $total = $cart?->total ?? 0;
-
-
+        $total = $cart?->total ?? 0;
 
         return view('cart.index', compact('cart', 'total'));
     }
 
-
-        public function add(Product $product)
+    public function add(Product $product)
     {
+        try {
+            $this->cartService->add($product, auth()->user());
 
-        $cart = Cart::firstOrCreate([
-        'user_id'=>auth()->id()
-        ]);
+            return back()->with('success', 'Added to cart');
 
-
-        $item = $cart->items()
-        ->where('product_id',$product->id)
-        ->first();
-
-
-        if ($product->quantity <= 0) {
-         return back()->with('error', 'Product out of stock');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
         }
-
-        if($item){
-
-             // الكمية الحالية + 1 أكبر من المخزون
-        if($item->quantity + 1 > $product->quantity){
-
-            return back()->with(
-                'error',
-                'Only '.$product->quantity.' items available'
-            );
-        }
-        $item->increment('quantity');
-
-        }else{
-              if($product->quantity < 1){
-
-                return back()->with(
-                'error',
-                'Product is out of stock'
-                );
-            }
-
-
-            $cart->items()->create([
-
-                'product_id'=>$product->id,
-
-                'quantity'=>1,
-
-                // نحفظ السعر وقت الإضافة
-                'price'=>$product->price
-
-            ]);
-
-        }
-
-
-
-
-        return back();
-
     }
-
-
 
     public function update(Request $request, CartItem $item)
     {
-        //
-         $request->validate([
-        'quantity'=>'required|integer|min:1'
+        $request->validate([
+            'quantity' => 'required|integer|min:1'
         ]);
 
-        abort_unless($item->cart->user_id === auth()->id(), 403);
-        $item->update([
+        try {
+            $this->cartService->update($item, $request->quantity);
 
-            'quantity'=>$request->quantity
+            return back()->with('success', 'Cart updated');
 
-        ]);
-
-
-        return back();
-
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(CartItem $item)
     {
-        //
         abort_unless($item->cart->user_id === auth()->id(), 403);
-        $item->delete();
 
+        try {
+            $this->cartService->remove($item);
 
-        return back();
+            return back()->with('success', 'Removed from cart');
+
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
     }
 
 }

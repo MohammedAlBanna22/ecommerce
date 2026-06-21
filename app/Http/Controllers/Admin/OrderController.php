@@ -4,8 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use Illuminate\Http\Request;
 use App\Notifications\OrderStatusNotification;
+use App\Services\OrderStatusService;
+use Illuminate\Http\Request;
 
 
 class OrderController extends Controller
@@ -15,7 +16,8 @@ class OrderController extends Controller
     public function index(Request $request)
     {
 
-         $orders = Order::with('user')
+            $orders = Order::with('user')
+            ->withCount('items')
             ->when($request->search, function($query) use($request){
 
                 $query->where('id',$request->search)
@@ -43,48 +45,56 @@ class OrderController extends Controller
             compact('orders')
         );
     }
-    public function updateStatus(Request $request, Order $order)
+    public function updateStatus(
+    Request $request,
+    Order $order,
+    OrderStatusService $service
+    )
     {
+
         $request->validate([
-            'order_status' => 'required|in:pending,confirmed,shipped,delivered,cancelled'
+            'order_status'=>
+            'required|in:
+            pending,confirmed,shipped,delivered,cancelled'
         ]);
 
-        $oldStatus = $order->order_status;
 
-        $order->update([
-            'order_status' => $request->order_status
-        ]);
+
+        try {
+
+
+            $service->update(
+                $order,
+                $request->order_status
+            );
+
+
 
             $order->user->notify(
                 new OrderStatusNotification($order)
             );
 
-        // 🔥 إذا تحول إلى confirmed → نقص من المخزون
-        if ($oldStatus != 'confirmed' && $request->order_status == 'confirmed') {
 
-            foreach ($order->items as $item) {
 
-                $product = $item->product;
+            return back()
+            ->with(
+                'success',
+                'Order updated successfully'
+            );
 
-                // تأكد في مخزون كافي
-                if ($product->quantity < $item->quantity) {
-                    return back()->with('error', 'Not enough stock for ' . $product->name);
-                 }
 
-                // $product->decrement('quantity', $item->quantity);
-            }
+
+        }catch(\Exception $e){
+
+
+            return back()
+            ->with(
+                'error',
+                $e->getMessage()
+            );
+
         }
 
-        // 🔥 إذا تم إلغاء الطلب → رجّع المخزون
-        if ($oldStatus != 'cancelled' && $request->order_status == 'cancelled') {
-
-            foreach ($order->items as $item) {
-
-                $item->product->increment('quantity', $item->quantity);
-            }
-         }
-
-         return back()->with('success', 'Order updated successfully');
     }
 
 public function show(Order $order)
@@ -92,7 +102,8 @@ public function show(Order $order)
 
         $order->load([
             'user',
-            'items.product'
+            'items.product',
+            'histories'
         ]);
 
 
