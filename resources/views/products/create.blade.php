@@ -1,154 +1,173 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Create Product</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
+@extends('layouts.app')
 
-<body class="bg-gray-100">
+@section('content')
 
-<div class="max-w-5xl mx-auto mt-10 bg-white rounded-2xl shadow p-8">
+<div class="max-w-[1200px] mx-auto px-3 sm:px-4 py-6">
 
-    <h2 class="text-3xl font-bold mb-8 text-center">➕ Create Product</h2>
-
-    {{-- ERRORS --}}
-    @if ($errors->any())
-        <div class="bg-red-100 text-red-600 p-3 rounded mb-5">
-            <ul class="list-disc pl-5">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
+    <!-- Page Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+            <a href="{{ route('products.index') }}" class="p-2 rounded-lg hover:bg-white transition-colors text-amz-text-sec">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold text-amz-text">Create New Product</h1>
+                <p class="text-[13px] text-amz-text-sec mt-0.5">Add a new product to your store</p>
+            </div>
         </div>
+
+
+    </div>
+
+    <!-- Errors -->
+    @if ($errors->any())
+    <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+        <h3 class="text-sm font-bold text-red-600 mb-2">Please fix errors:</h3>
+        <ul class="space-y-1">
+            @foreach ($errors->all() as $message)
+                <li class="text-sm text-red-500 flex items-center gap-2">
+                    <i data-lucide="x-circle" class="w-4 h-4"></i>
+                    {{ $message }}
+                </li>
+            @endforeach
+        </ul>
+    </div>
     @endif
 
-    <form method="POST" action="{{ route('products.store') }}" enctype="multipart/form-data">
-
+    <!-- Form -->
+    <form method="POST" action="{{ route('products.store') }}" enctype="multipart/form-data" id="createForm">
         @csrf
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="bg-white rounded-lg border border-amz-border overflow-hidden">
 
-            {{-- LEFT SIDE --}}
-            <div class="space-y-6">
+            <!-- Basic -->
+            <div class="px-6 py-5 border-b">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i data-lucide="package" class="w-5 h-5 text-amz-orange"></i>
+                    Basic Information
+                </h2>
 
-                {{-- PRODUCT INFO --}}
-                <div class="bg-gray-50 p-4 rounded-xl">
-                    <h3 class="font-bold mb-3">Product Info</h3>
+                <input type="text" name="name"
+                       value="{{ old('name') }}"
+                       placeholder="Product name"
+                       class="w-full border rounded px-4 py-2 mb-3">
 
-                    <input type="text" name="name"
-                           class="w-full border p-2 rounded mb-3"
-                           placeholder="Product Name">
-
-                    <textarea name="description"
-                              class="w-full border p-2 rounded mb-3"
-                              rows="4"
-                              placeholder="Product Description"></textarea>
-
-                    <select name="category_id"
-                            class="w-full border p-2 rounded mb-3">
-                        <option value="">Select Category</option>
-                        @foreach($categories as $cat)
-                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                        @endforeach
-                    </select>
-
-                    <select name="status"
-                            class="w-full border p-2 rounded">
-                        <option value="available">Available</option>
-                        <option value="unavailable">Unavailable</option>
-                    </select>
-                </div>
-
-                {{-- PRICING --}}
-                <div class="bg-gray-50 p-4 rounded-xl">
-                    <h3 class="font-bold mb-3">Pricing</h3>
-
-                    <input type="number" step="0.01" name="price"
-                           class="w-full border p-2 rounded mb-3"
-                           placeholder="Price">
-
-                    <input type="number" step="0.01" name="discount_price"
-                           class="w-full border p-2 rounded"
-                           placeholder="Discount Price">
-                </div>
-
+                <textarea name="description"
+                          rows="4"
+                          class="w-full border rounded px-4 py-2"
+                          placeholder="Description">{{ old('description') }}</textarea>
             </div>
 
-            {{-- RIGHT SIDE --}}
-            <div class="space-y-6">
+           <!-- Pricing -->
+<div class="px-6 py-5 border-b">
+    <h2 class="font-bold mb-4 flex items-center gap-2">
+        <i data-lucide="dollar-sign" class="w-5 h-5 text-amz-orange"></i>
+        Pricing
+    </h2>
 
-                {{-- INVENTORY --}}
-                <div class="bg-gray-50 p-4 rounded-xl">
-                    <h3 class="font-bold mb-3">Inventory</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-                    <input type="number" name="quantity"
-                           class="w-full border p-2 rounded mb-3"
-                           placeholder="Quantity">
+        <!-- Price -->
+        <div>
+            <label class="text-sm font-medium text-gray-700 mb-1 block">
+                Price <span class="text-red-500">*</span>
+            </label>
 
-                    <input type="number"
-                           class="w-full border p-2 rounded bg-gray-100"
-                           value="0"
-                           disabled>
+            <div class="relative">
+                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
+                <input type="number" step="0.01" min="0"
+                       name="price"
+                       value="{{ old('price') }}"
+                       class="w-full border rounded px-8 py-2"
+                       placeholder="0.00">
+            </div>
+        </div>
 
-                    <p class="text-xs text-gray-500 mt-2">
-                        Reserved quantity is managed automatically by system
-                    </p>
-                </div>
+        <!-- Discount -->
+        <div>
+            <label class="text-sm font-medium text-gray-700 mb-1 block">
+                Discount Price
+            </label>
 
-                {{-- MEDIA --}}
-                <div class="bg-gray-50 p-4 rounded-xl">
-                    <h3 class="font-bold mb-3">Media</h3>
-
-                    <input type="file"
-                           name="images[]"
-                           multiple
-                           class="w-full border p-2 rounded">
-
-                    <p class="text-xs text-gray-500 mt-2">
-                        First image will be the main product image
-                    </p>
-
-                    <div id="preview" class="grid grid-cols-4 gap-2 mt-3"></div>
-                </div>
-
+            <div class="relative">
+                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
+                <input type="number" step="0.01" min="0"
+                       name="discount_price"
+                       value="{{ old('discount_price') }}"
+                       class="w-full border rounded px-8 py-2"
+                       placeholder="0.00">
             </div>
 
+            <p class="text-xs text-gray-400 mt-1">
+                Optional — shown as crossed price
+            </p>
         </div>
 
-        {{-- SUBMIT --}}
-        <div class="mt-8">
-            <button type="submit"
-                    class="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 transition font-bold">
-                Create Product
-            </button>
-        </div>
-
-    </form>
+    </div>
 </div>
 
-{{-- IMAGE PREVIEW --}}
+            <!-- Organization -->
+            <div class="px-6 py-5 border-b">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i data-lucide="folder-open" class="w-5 h-5 text-amz-orange"></i>
+                    Organization
+                </h2>
+
+                <select name="category_id" class="w-full border rounded px-4 py-2 mb-3">
+                    <option value="">Select category</option>
+                    @foreach($categories as $cat)
+                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                    @endforeach
+                </select>
+
+
+            </div>
+
+            <!-- Inventory -->
+            <div class="px-6 py-5 border-b">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i data-lucide="warehouse" class="w-5 h-5 text-amz-orange"></i>
+                    Inventory
+                </h2>
+
+                <input type="number" name="quantity"
+                       value="{{ old('quantity', 0) }}"
+                       class="w-full border rounded px-4 py-2">
+            </div>
+
+            <!-- Images -->
+            <div class="px-6 py-5 border-b">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i data-lucide="image" class="w-5 h-5 text-amz-orange"></i>
+                    Images
+                </h2>
+
+                <input type="file" name="images[]" multiple class="w-full">
+            </div>
+
+            <!-- Submit -->
+            <div class="px-6 py-5 flex justify-between">
+                <a href="{{ route('products.index') }}" class="px-4 py-2 border rounded">
+                    Cancel
+                </a>
+
+                <button class="px-6 py-2 bg-yellow-400 rounded font-semibold">
+                    Create Product
+                </button>
+            </div>
+
+        </div>
+    </form>
+
+</div>
+
+@endsection
+
+
+@push('scripts')
 <script>
-document.querySelector('input[name="images[]"]').addEventListener('change', function (event) {
-
-    let preview = document.getElementById('preview');
-    preview.innerHTML = '';
-
-    [...event.target.files].forEach(file => {
-
-        let reader = new FileReader();
-
-        reader.onload = function (e) {
-            let img = document.createElement('img');
-            img.src = e.target.result;
-            img.className = "w-full h-20 object-cover rounded border";
-            preview.appendChild(img);
-        }
-
-        reader.readAsDataURL(file);
-    });
-
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 });
 </script>
-
-</body>
-</html>
+@endpush

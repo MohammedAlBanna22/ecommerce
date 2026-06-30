@@ -29,7 +29,23 @@ class UpdateProductRequest extends FormRequest
                 'price' => 'sometimes|required|numeric|min:0',
                 'quantity' => 'sometimes|required|integer|min:0',
                 'status' => 'sometimes|required|in:available,unavailable',
-                'image' => 'sometimes|nullable|image',
+                //'image' => 'sometimes|nullable|image',
+                'images'        => 'nullable|array',
+                'images.*'      => 'image|mimes:jpg,jpeg,png,webp|max:2048',
             ];
+    }
+     public function messages(): array
+    {
+        return [
+            'name.required' => 'Product name is required',
+            'price.required' => 'Price is required',
+            'price.min' => 'Price cannot be negative',
+            'discount_price.lt' => 'Compare price must be less than regular price',
+            'category_id.required' => 'Please select a category',
+            'quantity.min' => 'Quantity cannot be negative',
+            'images.*.image' => 'Each file must be an image',
+            'images.*.mimes' => 'Only JPG, PNG, WEBP are allowed',
+            'images.*.max' => 'Each image max size is 2MB',
+        ];
     }
 }

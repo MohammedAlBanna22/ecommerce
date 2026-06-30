@@ -28,4 +28,12 @@ class CartItem extends Model
     {
         return $this->belongsTo(Product::class);
     }
+public static function getTotalQuantity()
+{
+    return self::whereHas('cart', function($q){
+
+        $q->where('user_id', auth()->id());
+
+    })->sum('quantity');
+}
 }

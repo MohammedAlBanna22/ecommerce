@@ -55,7 +55,10 @@ class OrderController extends Controller
         $request->validate([
             'order_status'=>
             'required|in:
-            pending,confirmed,shipped,delivered,cancelled'
+            pending,processing,confirmed,shipped,delivered,cancelled',
+            'tracking_number' => 'nullable|string|max:100',
+            'shipping_carrier' => 'nullable|string|max:50',
+
         ]);
 
 
@@ -65,7 +68,9 @@ class OrderController extends Controller
 
             $service->update(
                 $order,
-                $request->order_status
+                $request->order_status,
+                 $request->tracking_number,
+                $request->shipping_carrier,
             );
 
 
@@ -113,6 +118,34 @@ public function show(Order $order)
         );
 
     }
+
+    public function markShipped(Request $request, Order $order, OrderStatusService $service)
+{
+    $request->validate([
+        'tracking_number'  => 'required|string|max:100',
+        'shipping_carrier' => 'required|string|max:50',
+    ]);
+
+    if ($order->order_status !== 'confirmed') {
+        return back()->with('error', 'Order must be confirmed before shipping.');
+    }
+
+    try {
+        $service->update(
+            $order,
+            'shipped',
+            $request->tracking_number,
+            $request->shipping_carrier,
+        );
+
+        $order->user->notify(new OrderStatusNotification($order));
+
+        return back()->with('success', 'Order marked as shipped!');
+
+    } catch (\Exception $e) {
+        return back()->with('error', $e->getMessage());
+    }
+}
 
 
 }

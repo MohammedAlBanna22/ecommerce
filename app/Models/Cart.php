@@ -37,4 +37,5 @@ class Cart extends Model
             $item->price * $item->quantity
         );
     }
+
 }

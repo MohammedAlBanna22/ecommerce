@@ -15,8 +15,7 @@ class CategoryController extends Controller
      */
     public function index()
     {
-        //
-         $categories = Category::latest()->get();
+        $categories = Category::latest()->get();
         return view('categories.index', compact('categories'));
     }
 
@@ -25,7 +24,6 @@ class CategoryController extends Controller
      */
     public function create()
     {
-        //
         return view('categories.create');
     }
 
@@ -34,8 +32,7 @@ class CategoryController extends Controller
      */
     public function store(StoreCategoryRequest $request)
     {
-        //
-         $data = $request->validated();
+        $data = $request->validated();
 
         if ($request->hasFile('image')) {
             $data['image'] = $this->uploadImage($request->file('image'));
@@ -44,25 +41,15 @@ class CategoryController extends Controller
         Category::create($data);
 
         return to_route('categories.index')
-        ->with('success', 'Category created successfully');
+            ->with('success', 'Category created successfully');
     }
 
-
-        private function uploadImage($file, $oldImage = null)
-    {
-        //should make php artisan storage:link
-        // حذف الصورة القديمة إذا موجودة
-        if ($oldImage) {
-        Storage::disk('public')->delete($oldImage);
-        }
-        return $file->store('products', 'public');
-    }
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(Category $category)  // ✅ FIXED: Added "function"
     {
-        //
+        return view('categories.show', compact('category'));
     }
 
     /**
@@ -70,7 +57,6 @@ class CategoryController extends Controller
      */
     public function edit(Category $category)
     {
-        //
         return view('categories.edit', compact('category'));
     }
 
@@ -79,11 +65,13 @@ class CategoryController extends Controller
      */
     public function update(UpdateCategoryRequest $request, Category $category)
     {
-        //
         $data = $request->validated();
 
         if ($request->hasFile('image')) {
-        $data['image'] = $this->uploadImage($request->file('image'), $category->image);
+            $data['image'] = $this->uploadImage(
+                $request->file('image'),
+                $category->image
+            );
         }
 
         $category->update($data);
@@ -91,8 +79,6 @@ class CategoryController extends Controller
         return redirect()
             ->route('categories.index')
             ->with('success', 'Category updated successfully');
-
-
     }
 
     /**
@@ -100,8 +86,28 @@ class CategoryController extends Controller
      */
     public function destroy(Category $category)
     {
-        //
-         $category->delete();
-        return redirect()->route('categories.index');
+        // Delete image file if exists
+        if ($category->image && Storage::disk('public')->exists($category->image)) {
+            Storage::disk('public')->delete($category->image);
+        }
+
+        $category->delete();
+
+        return redirect()->route('categories.index')
+            ->with('success', 'Category deleted successfully');
+    }
+
+    /**
+     * Upload image and optionally delete old one
+     */
+    private function uploadImage($file, $oldImage = null)
+    {
+        // Delete old image if exists
+        if ($oldImage && Storage::disk('public')->exists($oldImage)) {
+            Storage::disk('public')->delete($oldImage);
+        }
+
+        // ✅ FIXED: Save to 'categories' folder (not 'products'!)
+        return $file->store('categories', 'public');
     }
 }

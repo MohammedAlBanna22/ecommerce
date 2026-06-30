@@ -22,6 +22,8 @@ Route::middleware(['auth','admin'])
     [OrderController::class, 'updateStatus'])
     ->name('admin.orders.updateStatus');
 
+    Route::put('/orders/{order}/ship', [OrderController::class, 'markShipped'])->name('admin.orders.ship');
+
      Route::get('/dashboard',
         [DashboardController::class,'index']
     )->name('admin.dashboard');
@@ -36,7 +38,7 @@ Route::middleware(['auth','admin'])
 
 
     Route::patch(
-    '/admin/orders/{order}/status',
+    '/orders/{order}/status',
     [OrderController::class,'updateStatus']
     )
     ->name('orders.status');

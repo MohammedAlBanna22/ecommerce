@@ -2,19 +2,23 @@
 
 namespace App\Services;
 
+use App\Models\Address;
+use App\Models\Cart;
+use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
-use App\Models\Coupon;
 use Illuminate\Support\Facades\DB;
-use App\Models\Cart;
-
 
 class OrderService
 {
-    public function createOrder($user, $cart, $request)
+    /**
+     * Create order with proper address handling
+     */
+    public function createOrder($user, $cart, $request, ?Address $address = null)
     {
-        return DB::transaction(function () use ($user, $cart, $request) {
+        // ✅ أضفنا $address إلى use() !
+        return DB::transaction(function () use ($user, $cart, $request, $address) {
 
             /*
             |--------------------------------------------------------------------------
@@ -22,13 +26,13 @@ class OrderService
             |--------------------------------------------------------------------------
             */
             $currentCart = Cart::where('id', $cart->id)
-            ->where('user_id', $user->id)
-            ->with('items.product')
-            ->lockForUpdate()
-            ->first();
+                ->where('user_id', $user->id)
+                ->with('items.product')
+                ->lockForUpdate()
+                ->first();
 
             if (!$currentCart || $currentCart->items->isEmpty()) {
-                throw new \Exception('Cart is empty');
+                throw new \Exception('Cart is empty or invalid');
             }
 
             $subtotal = "0.00";
@@ -37,19 +41,25 @@ class OrderService
 
             /*
             |--------------------------------------------------------------------------
-            | 1. STOCK VALIDATION + SUBTOTAL
-                |--------------------------------------------------------------------------
+            | 1. STOCK VALIDATION + SUBTOTAL CALCULATION
+            |--------------------------------------------------------------------------
             */
             foreach ($currentCart->items as $item) {
-
                 $product = Product::where('id', $item->product_id)
                     ->lockForUpdate()
                     ->first();
 
+                if (!$product) {
+                    throw new \Exception("Product #{$item->product_id} not found");
+                }
+
                 $available = $product->quantity - $product->reserved_quantity;
 
                 if ($available < $item->quantity) {
-                    throw new \Exception("Product {$product->name} is out of stock");
+                    throw new \Exception(
+                        "Product \"{$product->name}\" only has {$available} items available. " .
+                        "You requested {$item->quantity}."
+                    );
                 }
 
                 $subtotal = bcadd(
@@ -61,62 +71,66 @@ class OrderService
 
             /*
             |--------------------------------------------------------------------------
-            | 2. COUPON SYSTEM
+            | 2. COUPON SYSTEM (Optional)
             |--------------------------------------------------------------------------
             */
-            if ($request->coupon_code) {
-
-                $coupon = Coupon::where('code', $request->coupon_code)
+            if (!empty($request->coupon_code)) {
+                $coupon = Coupon::where('code', strtoupper(trim($request->coupon_code)))
                     ->where('status', true)
                     ->first();
 
                 if (!$coupon) {
-                     throw new \Exception('Invalid coupon');
+                    throw new \Exception('Invalid coupon code. Please check and try again.');
                 }
 
                 if ($coupon->expires_at && $coupon->expires_at < now()) {
-                    throw new \Exception('Coupon expired');
+                    throw new \Exception('This coupon has expired');
                 }
 
                 if ($coupon->usage_limit && $coupon->used_count >= $coupon->usage_limit) {
-                    throw new \Exception('Coupon limit reached');
+                    throw new \Exception('This coupon has reached its usage limit');
                 }
 
                 $discount = $coupon->type === 'percent'
                     ? ($subtotal * $coupon->value) / 100
-                    : $coupon->value;
+                    : min($coupon->value, $subtotal); // لا يتجاوز الإجمالي
             }
 
             /*
             |--------------------------------------------------------------------------
-            | 3. FINAL TOTAL
+            | 3. FINAL TOTAL CALCULATION
             |--------------------------------------------------------------------------
             */
             $total = bcsub($subtotal, $discount, 2);
 
+            // ✅ التحقق من العنوان
+            if (!$address) {
+                throw new \Exception('No shipping address provided. Please select or add an address.');
+            }
+
             /*
-            |   --------------------------------------------------------------------------
-            |   4. CREATE ORDER
+            |--------------------------------------------------------------------------
+            | 4. CREATE ORDER RECORD
             |--------------------------------------------------------------------------
             */
-             $order = Order::create([
+            $order = Order::create([
                 'user_id' => $user->id,
-                'subtotal' => $subtotal,
-                'discount' => $discount,
+                'address_id' => $address->id,  // ✅ الآن $address متوفر!
                 'total_price' => $total,
-                'payment_method' => 'cash',
+                'payment_method' => $request->payment_method ?? 'cod',
                 'payment_status' => 'unpaid',
-                'order_status' => 'pending',
+                'order_status' => 'processing',
                 'coupon_code' => $coupon?->code,
+                'discount' => $discount,
             ]);
 
             /*
             |--------------------------------------------------------------------------
-            | 5. ORDER ITEMS + STOCK FINALIZATION
+            | 5. CREATE ORDER ITEMS + UPDATE STOCK
             |--------------------------------------------------------------------------
             */
             foreach ($currentCart->items as $item) {
-
+                // إنشاء عنصر الطلب
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item->product_id,
@@ -125,28 +139,22 @@ class OrderService
                     'total' => bcmul($item->price, $item->quantity, 2),
                 ]);
 
+                // تحديث المخزون
                 $product = Product::where('id', $item->product_id)
                     ->lockForUpdate()
                     ->first();
 
-                /*
-                |--------------------------------------------------------------------------
-                | RESERVED → SOLD TRANSITION
-                |--------------------------------------------------------------------------
-                */
-
-                // release reserved stock&&finalize stock (sold)
-
-                //$product->confirmSale($item->quantity);
-                $product->sell(
-                    $item->quantity,
-                    "Order #".$order->id
-                );
+                if ($product) {
+                    $product->sell(
+                        $item->quantity,
+                        "Order #{$order->id} - Item sold"
+                    );
+                }
             }
 
             /*
             |--------------------------------------------------------------------------
-            | 6. UPDATE COUPON USAGE
+            | 6. UPDATE COUPON USAGE (if used)
             |--------------------------------------------------------------------------
             */
             if ($coupon) {
@@ -155,7 +163,7 @@ class OrderService
 
             /*
             |--------------------------------------------------------------------------
-            | 7. CLEAR CART
+            | 7. CLEAR CART ITEMS
             |--------------------------------------------------------------------------
             */
             $currentCart->items()->delete();

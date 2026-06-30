@@ -9,10 +9,10 @@ use Illuminate\Support\Facades\DB;
 class OrderStatusService
 {
 
-    public function update(Order $order, string $status)
+    public function update(Order $order, string $status, ?string $trackingNumber = null, ?string $carrier = null)
     {
 
-        return DB::transaction(function () use ($order,$status) {
+        return DB::transaction(function () use ($order, $status, $trackingNumber, $carrier) {
 
 
             $oldStatus = $order->order_status;
@@ -61,11 +61,31 @@ class OrderStatusService
 
             }
 
+            $updateData = ['order_status' => $status];
 
+            // لما يصير shipped، نسجل وقت الشحن
+            if ($status === 'shipped') {
+                    $updateData['shipped_at'] = now();
+                    $updateData['tracking_number']   = $trackingNumber;
+                    $updateData['shipping_carrier']  = $carrier;
 
-            $order->update([
-                'order_status'=>$status
-            ]);
+                    // tracking_number يجي من الـ request — راح نمررها للـ service
+                    // if (!empty($trackingNumber)) {
+                    //     $updateData['tracking_number'] = $trackingNumber;
+                    //     $updateData['shipping_carrier'] = $carrier;
+                    // }
+                }
+
+                // لما يصير delivered
+                if ($status === 'delivered') {
+                    $updateData['delivered_at'] = now();
+                }
+
+                $order->update($updateData);
+
+            // $order->update([
+            //     'order_status'=>$status
+            // ]);
 
 
 

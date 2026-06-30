@@ -29,17 +29,45 @@ class CartController extends Controller
         return view('cart.index', compact('cart', 'total'));
     }
 
-    public function add(Product $product)
-    {
-        try {
-            $this->cartService->add($product, auth()->user());
+public function add(Request $request, Product $product)
+{
+    try {
+        $this->cartService->add($product, auth()->user());
 
-            return back()->with('success', 'Added to cart');
+        // حساب عدد الكارت بشكل صحيح
+        $cartCount = 0;
 
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+        if (auth()->check()) {
+            $cart = auth()->user()->cart;
+
+            if ($cart) {
+                $cartCount = $cart->items()->sum('quantity');
+            }
+        } else {
+            $cartCount = collect(session('cart', []))->sum('quantity');
         }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success'   => true,
+                'cartCount' => $cartCount,
+            ]);
+        }
+
+        return back()->with('success', 'Added to cart');
+
+    } catch (\Exception $e) {
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        return back()->with('error', $e->getMessage());
     }
+}
 
     public function update(Request $request, CartItem $item)
     {
